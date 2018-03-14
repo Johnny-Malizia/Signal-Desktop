@@ -390,8 +390,10 @@
         }
     },
     getUntrusted: function() {
-        // This is a bit ugly because isUntrusted() is async. Could do the work to cache
-        //   it locally, but we really only need it for this call.
+	if (!this.untrustedCollection) {
+            this.untrustedCollection = [];
+        }
+
         if (this.isPrivate()) {
             return this.isUntrusted().then(function(untrusted) {
                 if (untrusted) {
@@ -402,10 +404,16 @@
             }.bind(this));
         } else {
             return Promise.all(this.contactCollection.map(function(contact) {
+                if (this.untrustedCollection) {
+                    return this.untrustedCollection;
+                }
+
                 if (contact.isMe()) {
                     return [false, contact];
                 } else {
-                    return Promise.all([contact.isUntrusted(), contact]);
+                    var untrustedResult = Promise.all([contact.isUntrusted(), contact]);
+                    this.untrustedCollection.push(untrustedResult);
+                    return untrustedResult;
                 }
             }.bind(this))).then(function(results) {
                 results = _.filter(results, function(result) {
